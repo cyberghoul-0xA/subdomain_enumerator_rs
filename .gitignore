@@ -1,0 +1,6 @@
+/target
+**/*.rs.bk
+/subdomains.txt
+/valid.txt
+/Cargo.lock
+
