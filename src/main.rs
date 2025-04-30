@@ -9,21 +9,29 @@ use std::env::args;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::open("subdomains.txt")?;
+    let file = match File::open("subdomains.txt"){
+        Ok(file) => file,
+        Err(err) => {
+            eprintln!("[-] Failed to open subdomains.txt: {}",err);
+            std::process::exit(1);
+        }
+    };
     let reader = BufReader::new(file);
     let arg: Vec<String> = args().collect();
+    if arg.len() < 2{
+        eprintln!("Usage: {} <domain_name>",arg[0]);
+        std::process::exit(1);
+    }
+
     let domain = &arg[1];
-
-
     let client = Client::new();
 
     let file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("valid.txt")
-        .await?;
+        .open("valid.txt").await?;
+        
     let output = Arc::new(Mutex::new(file));
-
     let mut handles = vec![];
 
     for line in reader.lines() {
@@ -34,34 +42,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let full_domain = format!("{}.{}", subdomain,domain);
 
             let handle = task::spawn(async move {
-                if let Ok(mut addrs) = lookup_host((full_domain.as_str(), 80)).await {
-                    if addrs.next().is_some() {
-                        println!("[DNS] {} resolved", full_domain);
-
-                        for scheme in &["http", "https"] {
-                            let url = format!("{}://{}", scheme, full_domain);
-                            match client.get(&url).send().await {
-                                Ok(resp) => {
-                                    if resp.status().is_success() {
-                                        println!("[+] Reachable: {} ({})", url, resp.status());
-                                        let mut file = output.lock().await;
-                                        let _ = file.write_all(format!("{}\n", url).as_bytes()).await;
-                                    } else {
-                                        println!("[-] {} responded with {}", url, resp.status());
-                                    }
-                                }
-                                Err(e) => {
-                                    println!("[-] Failed to reach {}: {}", url, e);
-                                }
-                            }
-                        }
-                    } else {
-                        println!("[DNS] {} did not return any address", full_domain);
-                    }
-                } else {
-                    println!("[DNS] {} failed to resolve", full_domain);
-                }
+                check_subdomain(client, output,full_domain).await;
             });
+
+               
 
             handles.push(handle);
         }
@@ -73,3 +57,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+async fn check_subdomain(client: Client, output:Arc<Mutex<tokio::fs::File>>, full_domain: String){
+    if let Ok(mut addrs) = lookup_host((full_domain.as_str(), 80)).await {
+        if addrs.next().is_some() {
+            println!("[DNS] {} resolved", full_domain);
+
+            for scheme in &["http", "https"] {
+                let url = format!("{}://{}", scheme, full_domain);
+                match client.get(&url).send().await {
+                    Ok(resp) => {
+                        if resp.status().is_success() {
+                            println!("[+] Reachable: {} ({})", url, resp.status());
+                            let mut file = output.lock().await;
+                            let _ = file.write_all(format!("{}\n", url).as_bytes()).await;
+                        } else {
+                            println!("[-] {} Response:  {}", url, resp.status());
+                        }
+                    }
+                    Err(e) => {
+                        println!("[-] Failed to reach {}: {}", url, e);
+                    }
+                }
+            }
+        } else {
+            println!("[DNS] {} No address Returned", full_domain);
+        }
+    } else {
+        println!("[DNS] {} failed to resolve", full_domain);
+    }
+}
+
