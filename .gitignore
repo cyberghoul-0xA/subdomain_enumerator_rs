@@ -3,4 +3,5 @@
 /subdomains.txt
 /valid.txt
 /Cargo.lock
+*.log
 
