@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reader = BufReader::new(file);
     let arg: Vec<String> = args().collect();
     if arg.len() < 2{
-        eprintln!("Usage: cargo run <domain_name>",arg[0]);
+        eprintln!("Usage: cargo run <domain_name> in {}",arg[0]);
         std::process::exit(1);
     }
 
