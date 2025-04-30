@@ -21,8 +21,8 @@ This is a simple and concurrent subdomain enumeration tool written in Rust. It r
 ## Usage
 
 1. Clone the repo:
-2. cd subdomain_enumerator_rs
+2. ```cd subdomain_enumerator_rs ```
 3. Prepare the subdomains.txt file containing the subdomains
-4. Run the tool <pre> ```bash cargo run <domain_name> ``` </pre>
+4. Run the tool <pre> ```cargo run <domain_name> ``` </pre>
 
  
